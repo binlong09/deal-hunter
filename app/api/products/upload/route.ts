@@ -8,6 +8,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('image') as File;
     const tripId = formData.get('tripId') as string;
+    const clientTimestamp = formData.get('captureTimestamp') as string;
 
     if (!file || !tripId) {
       return NextResponse.json(
@@ -37,13 +38,16 @@ export async function POST(request: NextRequest) {
       productInfo = { product_name: 'Unknown Product', category: 'other', confidence: 0 };
     }
 
+    // Use client's local timestamp if provided, otherwise use server time
+    const captureTimestamp = clientTimestamp || new Date().toISOString().replace('T', ' ').substring(0, 19);
+
     // Save to database with extracted information (auto-approved, using OCR-detected category)
     const result = await turso.execute({
       sql: `INSERT INTO products (
               trip_id, image_url, thumbnail_url, category,
               product_name, sku, current_price, original_price, discount_percent,
               shelf_info_json, ocr_confidence_score, status, capture_timestamp
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         tripId,
         url,
@@ -62,6 +66,7 @@ export async function POST(request: NextRequest) {
         }),
         productInfo.confidence,
         'approved', // Auto-approve all uploads
+        captureTimestamp,
       ],
     });
 

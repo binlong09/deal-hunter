@@ -46,6 +46,11 @@ export default function CapturePage() {
       formData.append('image', file);
       formData.append('tripId', tripId!);
 
+      // Add client's local timestamp (YYYY-MM-DD HH:MM:SS format)
+      const now = new Date();
+      const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      formData.append('captureTimestamp', timestamp);
+
       await fetch('/api/products/upload', {
         method: 'POST',
         body: formData,
