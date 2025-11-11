@@ -17,13 +17,28 @@ CREATE TABLE products_new (
   ocr_confidence_score REAL,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'posted')),
   starred INTEGER DEFAULT 0,
-  notes TEXT,
   capture_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (trip_id) REFERENCES trips(id)
 );
 
 -- Step 2: Copy all data from old table to new table
-INSERT INTO products_new
+INSERT INTO products_new (
+  id,
+  trip_id,
+  image_url,
+  thumbnail_url,
+  category,
+  product_name,
+  sku,
+  current_price,
+  original_price,
+  discount_percent,
+  shelf_info_json,
+  ocr_confidence_score,
+  status,
+  starred,
+  capture_timestamp
+)
 SELECT
   id,
   trip_id,
@@ -39,7 +54,6 @@ SELECT
   ocr_confidence_score,
   status,
   starred,
-  notes,
   capture_timestamp
 FROM products;
 
