@@ -1,6 +1,12 @@
 -- Migration: Remove CHECK constraint from category field in products table
 -- This allows OCR to detect any category, not just the hardcoded ones
 
+-- Disable foreign key constraints temporarily
+PRAGMA foreign_keys = OFF;
+
+-- Clean up any leftover table from failed migration
+DROP TABLE IF EXISTS products_new;
+
 -- Step 1: Create new products table without CHECK constraint
 CREATE TABLE products_new (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,5 +69,8 @@ DROP TABLE products;
 -- Step 4: Rename new table to products
 ALTER TABLE products_new RENAME TO products;
 
--- Step 5: Verify migration
+-- Step 5: Re-enable foreign key constraints
+PRAGMA foreign_keys = ON;
+
+-- Step 6: Verify migration
 SELECT COUNT(*) as total_products FROM products;
