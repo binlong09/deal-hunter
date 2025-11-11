@@ -32,16 +32,17 @@ export default function GeneratePage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [view, setView] = useState<'select' | 'posts'>('select');
+  const [view, setView] = useState<'select' | 'posts'>('posts');
+  const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, status: '' });
 
   useEffect(() => {
-    fetchApprovedProducts();
+    fetchProducts();
     fetchGeneratedPosts();
   }, []);
 
-  const fetchApprovedProducts = async () => {
+  const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products?status=approved');
+      const response = await fetch('/api/products');
       const data = await response.json();
       setProducts(data.products || []);
     } catch (error) {
@@ -68,8 +69,25 @@ export default function GeneratePage() {
       return;
     }
 
+    const total = selectedIds.size;
     setGenerating(true);
+    setGenerationProgress({ current: 0, total, status: 'Preparing to generate posts...' });
+
     try {
+      // Simulate progress updates (since API doesn't stream progress)
+      const progressInterval = setInterval(() => {
+        setGenerationProgress((prev) => {
+          if (prev.current < prev.total) {
+            return {
+              ...prev,
+              current: Math.min(prev.current + 1, prev.total),
+              status: `Generating post ${Math.min(prev.current + 1, prev.total)} of ${prev.total}...`,
+            };
+          }
+          return prev;
+        });
+      }, 3000); // Update every 3 seconds (approximate time per post)
+
       const response = await fetch('/api/generate-posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,21 +97,30 @@ export default function GeneratePage() {
         }),
       });
 
+      clearInterval(progressInterval);
+
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Generated ${data.total} posts!`);
-        setSelectedIds(new Set());
-        await fetchGeneratedPosts();
-        setView('posts');
+        setGenerationProgress({ current: total, total, status: `Successfully generated ${data.total} posts!` });
+        setTimeout(() => {
+          setSelectedIds(new Set());
+          fetchGeneratedPosts();
+          setView('posts');
+        }, 2000);
       } else {
+        setGenerationProgress({ current: 0, total: 0, status: '' });
         alert('Failed to generate posts: ' + data.error);
       }
     } catch (error) {
       console.error('Generate posts error:', error);
+      setGenerationProgress({ current: 0, total: 0, status: '' });
       alert('Failed to generate posts');
     } finally {
-      setGenerating(false);
+      setTimeout(() => {
+        setGenerating(false);
+        setGenerationProgress({ current: 0, total: 0, status: '' });
+      }, 2000);
     }
   };
 
@@ -131,6 +158,80 @@ export default function GeneratePage() {
     await fetchGeneratedPosts();
   };
 
+  const handleRegeneratePost = async (post: GeneratedPost) => {
+    if (!confirm('Regenerate this post? The current text will be replaced.')) return;
+
+    try {
+      setGenerating(true);
+      setGenerationProgress({ current: 0, total: 1, status: 'Regenerating post...' });
+
+      const response = await fetch('/api/generate-posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productIds: [post.product_id],
+          schedule: true,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Delete the old post
+        await fetch(`/api/generated-posts?id=${post.id}`, {
+          method: 'DELETE',
+        });
+
+        setGenerationProgress({ current: 1, total: 1, status: 'Post regenerated successfully!' });
+        setTimeout(() => {
+          setGenerating(false);
+          setGenerationProgress({ current: 0, total: 0, status: '' });
+          fetchGeneratedPosts();
+        }, 1500);
+      } else {
+        setGenerating(false);
+        alert('Failed to regenerate post: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Regenerate error:', error);
+      setGenerating(false);
+      alert('Failed to regenerate post');
+    }
+  };
+
+  const handleDeletePost = async (postId: number) => {
+    if (!confirm('Delete this post? This cannot be undone.')) return;
+
+    try {
+      await fetch(`/api/generated-posts?id=${postId}`, {
+        method: 'DELETE',
+      });
+
+      await fetchGeneratedPosts();
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete post');
+    }
+  };
+
+  const getRelativeDate = (dateStr: string): string => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const scheduled = new Date(dateStr + 'T00:00:00'); // Add time to avoid timezone issues
+    scheduled.setHours(0, 0, 0, 0);
+
+    const diffDays = Math.round((scheduled.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
+    if (diffDays < -1 && diffDays >= -7) return `${Math.abs(diffDays)} days ago`;
+
+    return formatDate(dateStr);
+  };
+
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -162,7 +263,7 @@ export default function GeneratePage() {
               className={`px-4 py-2 rounded-lg font-medium ${
                 view === 'select'
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700'
+                  : 'bg-gray-100 text-gray-900'
               }`}
             >
               Select Products ({products.length})
@@ -172,7 +273,7 @@ export default function GeneratePage() {
               className={`px-4 py-2 rounded-lg font-medium ${
                 view === 'posts'
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700'
+                  : 'bg-gray-100 text-gray-900'
               }`}
             >
               Generated Posts ({posts.length})
@@ -224,7 +325,7 @@ export default function GeneratePage() {
                     </div>
                     <div className="p-3">
                       <div className="text-xs text-gray-500">{product.category}</div>
-                      <div className="font-medium text-sm line-clamp-2">
+                      <div className="font-medium text-sm text-gray-900 line-clamp-2">
                         {product.product_name}
                       </div>
                       {product.current_price && (
@@ -268,20 +369,20 @@ export default function GeneratePage() {
                             {post.product_name || 'Product'}
                           </h3>
                           <p className="text-sm text-gray-500">
-                            {formatDate(post.scheduled_date)} at{' '}
+                            <span className="font-medium">{getRelativeDate(post.scheduled_date)}</span> at{' '}
                             {formatTime(post.scheduled_time)}
                           </p>
                         </div>
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-900 text-xs rounded-full">
                           {post.status}
                         </span>
                       </div>
 
-                      <div className="bg-gray-50 rounded-lg p-4 mb-4 whitespace-pre-wrap text-sm">
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4 whitespace-pre-wrap text-sm text-gray-900">
                         {post.post_text}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => handleCopyPost(post)}
                           className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium"
@@ -294,6 +395,18 @@ export default function GeneratePage() {
                         >
                           📥 Download Image
                         </button>
+                        <button
+                          onClick={() => handleRegeneratePost(post)}
+                          className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg text-sm font-medium"
+                        >
+                          🔄 Regenerate
+                        </button>
+                        <button
+                          onClick={() => handleDeletePost(post.id)}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium"
+                        >
+                          🗑 Delete
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -305,7 +418,7 @@ export default function GeneratePage() {
       </div>
 
       {/* Generate Button */}
-      {view === 'select' && selectedIds.size > 0 && (
+      {view === 'select' && selectedIds.size > 0 && !generating && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="text-sm text-gray-600">
@@ -314,10 +427,62 @@ export default function GeneratePage() {
             <button
               onClick={generatePosts}
               disabled={generating}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-semibold"
+              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors"
             >
               {generating ? 'Generating...' : `Generate ${selectedIds.size} Post${selectedIds.size !== 1 ? 's' : ''} ✨`}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Modal */}
+      {generating && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <div className="text-center">
+              {/* Animated Icon */}
+              <div className="mb-6">
+                <div className="inline-block animate-bounce">
+                  <span className="text-6xl">✨</span>
+                </div>
+              </div>
+
+              {/* Title */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Generating Posts
+              </h2>
+
+              {/* Status Text */}
+              <p className="text-gray-600 mb-6">
+                {generationProgress.status || 'Please wait...'}
+              </p>
+
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>Progress</span>
+                  <span>{generationProgress.current} / {generationProgress.total}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="bg-indigo-600 h-3 rounded-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${generationProgress.total > 0 ? (generationProgress.current / generationProgress.total) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Estimated Time */}
+              <div className="text-sm text-gray-500">
+                {generationProgress.total > 0 && generationProgress.current < generationProgress.total && (
+                  <p>Estimated time: ~{Math.ceil((generationProgress.total - generationProgress.current) * 3)} seconds</p>
+                )}
+                {generationProgress.current === generationProgress.total && generationProgress.total > 0 && (
+                  <p className="text-green-600 font-semibold">✓ Complete! Redirecting...</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

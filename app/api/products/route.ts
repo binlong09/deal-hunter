@@ -158,6 +158,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Delete related generated_posts first (CASCADE delete)
+    await turso.execute({
+      sql: 'DELETE FROM generated_posts WHERE product_id = ?',
+      args: [id],
+    });
+
+    // Now delete the product
     await turso.execute({
       sql: 'DELETE FROM products WHERE id = ?',
       args: [id],

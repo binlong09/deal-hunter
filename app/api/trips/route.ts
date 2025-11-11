@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
 
     const trip = await queryOne(
       `SELECT * FROM trips WHERE id = ?`,
-      [result.lastInsertRowid]
+      [Number(result.lastInsertRowid)]
     );
 
     return NextResponse.json(trip);

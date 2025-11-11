@@ -4,10 +4,9 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 
 interface CameraCaptureProps {
   onCapture: (file: File) => void;
-  category: string;
 }
 
-export default function CameraCapture({ onCapture, category }: CameraCaptureProps) {
+export default function CameraCapture({ onCapture }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -45,9 +44,12 @@ export default function CameraCapture({ onCapture, category }: CameraCaptureProp
     initCamera();
 
     return () => {
-      // Cleanup camera stream
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      // Cleanup camera stream on unmount
+      const video = videoRef.current;
+      if (video && video.srcObject) {
+        const tracks = (video.srcObject as MediaStream).getTracks();
+        tracks.forEach((track) => track.stop());
+        video.srcObject = null;
       }
     };
   }, []);
@@ -73,7 +75,7 @@ export default function CameraCapture({ onCapture, category }: CameraCaptureProp
     canvas.toBlob(
       (blob) => {
         if (blob) {
-          const file = new File([blob], `${category}-${Date.now()}.jpg`, {
+          const file = new File([blob], `product-${Date.now()}.jpg`, {
             type: 'image/jpeg',
           });
           onCapture(file);
@@ -95,7 +97,7 @@ export default function CameraCapture({ onCapture, category }: CameraCaptureProp
       'image/jpeg',
       0.85
     );
-  }, [onCapture, category, isInitializing, error]);
+  }, [onCapture, isInitializing, error]);
 
   if (error) {
     return (
@@ -135,11 +137,6 @@ export default function CameraCapture({ onCapture, category }: CameraCaptureProp
       {/* Capture count overlay */}
       <div className="absolute top-4 right-4 bg-black/50 text-white px-4 py-2 rounded-full text-lg font-bold backdrop-blur-sm">
         {captureCount} 📸
-      </div>
-
-      {/* Category indicator */}
-      <div className="absolute top-4 left-4 bg-indigo-600/90 text-white px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm">
-        {category}
       </div>
 
       {/* Capture button hint */}

@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     const post = await queryOne(
       `SELECT * FROM example_posts WHERE id = ?`,
-      [result.lastInsertRowid]
+      [Number(result.lastInsertRowid)]
     );
 
     return NextResponse.json(post);

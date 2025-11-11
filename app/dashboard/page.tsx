@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { classNames } from '@/lib/utils';
 
 interface Product {
@@ -16,24 +17,26 @@ interface Product {
   discount_percent: number | null;
   status: 'pending' | 'approved' | 'rejected' | 'posted';
   starred: number;
+  sku: string | null;
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [generating, setGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, status: '' });
 
   useEffect(() => {
     fetchProducts();
-  }, [filter, categoryFilter]);
+  }, [categoryFilter]);
 
   const fetchProducts = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filter !== 'all') params.append('status', filter);
       if (categoryFilter !== 'all') params.append('category', categoryFilter);
 
       const response = await fetch(`/api/products?${params}`);
@@ -83,27 +86,103 @@ export default function DashboardPage() {
     }
   };
 
-  const bulkApprove = async () => {
-    if (selectedIds.size === 0) return;
+  const deleteProduct = async (id: number) => {
+    if (!confirm('Delete this product? This cannot be undone.')) return;
 
     try {
-      await fetch('/api/products/bulk-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productIds: Array.from(selectedIds),
-          updates: { status: 'approved' },
-        }),
+      await fetch(`/api/products?id=${id}`, {
+        method: 'DELETE',
       });
+
+      await fetchProducts();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Failed to delete product');
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    if (!confirm(`Delete ${selectedIds.size} product${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedIds).map((id) =>
+          fetch(`/api/products?id=${id}`, { method: 'DELETE' })
+        )
+      );
 
       await fetchProducts();
       setSelectedIds(new Set());
     } catch (error) {
-      console.error('Bulk approve failed:', error);
+      console.error('Bulk delete failed:', error);
+      alert('Failed to delete products');
     }
   };
 
-  const approvedCount = products.filter((p) => p.status === 'approved').length;
+  const generatePosts = async () => {
+    if (selectedIds.size === 0) {
+      alert('Please select at least one product');
+      return;
+    }
+
+    const total = selectedIds.size;
+    setGenerating(true);
+    setGenerationProgress({ current: 0, total, status: 'Preparing to generate posts...' });
+
+    try {
+      // Simulate progress updates (since API doesn't stream progress)
+      const progressInterval = setInterval(() => {
+        setGenerationProgress((prev) => {
+          if (prev.current < prev.total) {
+            return {
+              ...prev,
+              current: Math.min(prev.current + 1, prev.total),
+              status: `Generating post ${Math.min(prev.current + 1, prev.total)} of ${prev.total}...`,
+            };
+          }
+          return prev;
+        });
+      }, 3000); // Update every 3 seconds (approximate time per post)
+
+      const response = await fetch('/api/generate-posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productIds: Array.from(selectedIds),
+          schedule: true,
+        }),
+      });
+
+      clearInterval(progressInterval);
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setGenerationProgress({ current: total, total, status: `Successfully generated ${data.total} posts!` });
+        setTimeout(() => {
+          setGenerating(false);
+          setGenerationProgress({ current: 0, total: 0, status: '' });
+          setSelectedIds(new Set());
+
+          // Ask user if they want to view the generated posts
+          if (confirm(`Successfully generated ${data.total} posts! Would you like to view them now?`)) {
+            router.push('/generate');
+          }
+        }, 2000);
+      } else {
+        setGenerationProgress({ current: 0, total: 0, status: '' });
+        setGenerating(false);
+        alert('Failed to generate posts: ' + data.error);
+      }
+    } catch (error) {
+      console.error('Generate posts error:', error);
+      setGenerationProgress({ current: 0, total: 0, status: '' });
+      setGenerating(false);
+      alert('Failed to generate posts');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -123,29 +202,24 @@ export default function DashboardPage() {
           {/* Filters */}
           <div className="flex gap-4 overflow-x-auto pb-2">
             <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
-              className="px-4 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-            </select>
-
-            <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-4 py-2 border rounded-lg text-sm"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
             >
               <option value="all">All Categories</option>
               <option value="supplements">💊 Supplements</option>
               <option value="baby">👶 Baby</option>
               <option value="cosmetics">💄 Cosmetics</option>
+              <option value="food">🍎 Food</option>
+              <option value="household">🧹 Household</option>
+              <option value="personal_care">🧴 Personal Care</option>
+              <option value="electronics">📱 Electronics</option>
+              <option value="other">📦 Other</option>
             </select>
 
             <button
               onClick={selectAll}
-              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-900"
             >
               {selectedIds.size === products.length ? 'Deselect All' : 'Select All'}
             </button>
@@ -155,10 +229,17 @@ export default function DashboardPage() {
           {selectedIds.size > 0 && (
             <div className="mt-3 flex gap-2">
               <button
-                onClick={bulkApprove}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
+                onClick={generatePosts}
+                disabled={generating}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium"
               >
-                ✓ Approve {selectedIds.size}
+                ✨ Generate {selectedIds.size} Post{selectedIds.size !== 1 ? 's' : ''}
+              </button>
+              <button
+                onClick={bulkDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium"
+              >
+                🗑 Delete {selectedIds.size}
               </button>
               <button
                 onClick={() => setSelectedIds(new Set())}
@@ -211,13 +292,8 @@ export default function DashboardPage() {
 
                   {/* Status Badge */}
                   <div className="absolute top-2 right-2">
-                    {product.status === 'approved' && (
-                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                        ✓
-                      </span>
-                    )}
                     {product.starred === 1 && (
-                      <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full ml-1">
+                      <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
                         ⭐
                       </span>
                     )}
@@ -237,16 +313,33 @@ export default function DashboardPage() {
                 <div className="p-3">
                   <div className="text-xs text-gray-500 mb-1">
                     {product.category}
+                    {product.sku && <span className="ml-2">#{product.sku}</span>}
                   </div>
                   {product.product_name && (
-                    <div className="font-medium text-sm mb-1 line-clamp-2">
+                    <div className="font-medium text-sm text-gray-900 mb-1 line-clamp-2">
                       {product.product_name}
                     </div>
                   )}
-                  {product.current_price && (
-                    <div className="text-sm font-bold text-green-600">
-                      ${product.current_price}
+                  {product.current_price ? (
+                    <div className="space-y-1">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-sm font-bold text-green-600">
+                          ${product.current_price.toFixed(2)}
+                        </span>
+                        {product.original_price && product.original_price > product.current_price && (
+                          <span className="text-xs text-gray-400 line-through">
+                            ${product.original_price.toFixed(2)}
+                          </span>
+                        )}
+                      </div>
+                      {product.discount_percent && product.discount_percent > 0 && (
+                        <div className="text-xs text-red-600 font-semibold">
+                          Save {product.discount_percent}%
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <div className="text-xs text-gray-400">Price not detected</div>
                   )}
 
                   {/* Quick Actions */}
@@ -270,18 +363,11 @@ export default function DashboardPage() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        updateProduct(product.id, {
-                          status: product.status === 'approved' ? 'pending' : 'approved',
-                        });
+                        deleteProduct(product.id);
                       }}
-                      className={classNames(
-                        'flex-1 px-2 py-1 rounded text-xs',
-                        product.status === 'approved'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-600'
-                      )}
+                      className="flex-1 px-2 py-1 rounded text-xs bg-red-100 text-red-700 hover:bg-red-200"
                     >
-                      ✓
+                      🗑
                     </button>
                   </div>
                 </div>
@@ -291,19 +377,54 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Footer Action */}
-      {approvedCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="text-sm text-gray-600">
-              {approvedCount} product{approvedCount !== 1 ? 's' : ''} approved
+      {/* Progress Modal */}
+      {generating && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <div className="text-center">
+              {/* Animated Icon */}
+              <div className="mb-6">
+                <div className="inline-block animate-bounce">
+                  <span className="text-6xl">✨</span>
+                </div>
+              </div>
+
+              {/* Title */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Generating Posts
+              </h2>
+
+              {/* Status Text */}
+              <p className="text-gray-600 mb-6">
+                {generationProgress.status || 'Please wait...'}
+              </p>
+
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>Progress</span>
+                  <span>{generationProgress.current} / {generationProgress.total}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="bg-indigo-600 h-3 rounded-full transition-all duration-500 ease-out"
+                    style={{
+                      width: `${generationProgress.total > 0 ? (generationProgress.current / generationProgress.total) * 100 : 0}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Estimated Time */}
+              <div className="text-sm text-gray-500">
+                {generationProgress.total > 0 && generationProgress.current < generationProgress.total && (
+                  <p>Estimated time: ~{Math.ceil((generationProgress.total - generationProgress.current) * 3)} seconds</p>
+                )}
+                {generationProgress.current === generationProgress.total && generationProgress.total > 0 && (
+                  <p className="text-green-600 font-semibold">✓ Complete! Redirecting...</p>
+                )}
+              </div>
             </div>
-            <Link
-              href="/generate"
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold"
-            >
-              Generate Posts →
-            </Link>
           </div>
         </div>
       )}

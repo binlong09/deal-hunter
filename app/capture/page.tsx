@@ -5,10 +5,7 @@ import CameraCapture from '@/components/CameraCapture';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-type Category = 'supplements' | 'baby' | 'cosmetics';
-
 export default function CapturePage() {
-  const [category, setCategory] = useState<Category>('supplements');
   const [tripId, setTripId] = useState<string | null>(null);
   const [uploadQueue, setUploadQueue] = useState<File[]>([]);
   const [uploadedCount, setUploadedCount] = useState(0);
@@ -48,7 +45,6 @@ export default function CapturePage() {
       const formData = new FormData();
       formData.append('image', file);
       formData.append('tripId', tripId!);
-      formData.append('category', category);
 
       await fetch('/api/products/upload', {
         method: 'POST',
@@ -82,26 +78,11 @@ export default function CapturePage() {
               Capture Products
             </h1>
             <p className="text-gray-600">
-              Select a category and start capturing
+              AI will automatically detect product category
             </p>
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Product Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="supplements">💊 Supplements</option>
-                <option value="baby">👶 Baby Products</option>
-                <option value="cosmetics">💄 Cosmetics</option>
-              </select>
-            </div>
-
             <button
               onClick={() => setShowCamera(true)}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors shadow-lg"
@@ -132,14 +113,20 @@ export default function CapturePage() {
     <>
       {/* Upload status overlay */}
       {uploadQueue.length > 0 && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-blue-500 text-white px-4 py-2 rounded-full shadow-lg"
+        >
           Uploading {uploadQueue.length}...
         </div>
       )}
 
       {/* Back button */}
       <button
-        onClick={() => setShowCamera(false)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowCamera(false);
+        }}
         className="fixed top-20 left-4 z-50 bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-sm hover:bg-black/70"
       >
         ← Back
@@ -147,13 +134,16 @@ export default function CapturePage() {
 
       {/* Done button */}
       <button
-        onClick={() => router.push('/dashboard')}
+        onClick={(e) => {
+          e.stopPropagation();
+          router.push('/dashboard');
+        }}
         className="fixed top-20 right-20 z-50 bg-green-600/90 text-white px-6 py-2 rounded-full backdrop-blur-sm hover:bg-green-700 font-semibold"
       >
         Done ({uploadedCount})
       </button>
 
-      <CameraCapture onCapture={handleCapture} category={category} />
+      <CameraCapture onCapture={handleCapture} />
     </>
   );
 }

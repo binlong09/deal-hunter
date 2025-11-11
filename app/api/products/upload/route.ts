@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadImage } from '@/lib/blob';
 import { turso } from '@/lib/turso';
+import { extractProductInfo } from '@/lib/ocr';
 
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('image') as File;
     const tripId = formData.get('tripId') as string;
-    const category = formData.get('category') as string;
 
-    if (!file || !tripId || !category) {
+    if (!file || !tripId) {
       return NextResponse.json(
-        { error: 'Missing required fields: image, tripId, or category' },
+        { error: 'Missing required fields: image or tripId' },
         { status: 400 }
       );
     }
@@ -27,11 +27,42 @@ export async function POST(request: NextRequest) {
     // Upload image to Vercel Blob
     const { url, thumbnailUrl } = await uploadImage(file, `products/${tripId}`);
 
-    // Save to database
+    // Extract product info using OCR (including category detection)
+    let productInfo;
+    try {
+      productInfo = await extractProductInfo(url);
+      console.log('OCR extracted:', productInfo);
+    } catch (error) {
+      console.error('OCR failed, continuing without extracted data:', error);
+      productInfo = { product_name: 'Unknown Product', category: 'other', confidence: 0 };
+    }
+
+    // Save to database with extracted information (auto-approved, using OCR-detected category)
     const result = await turso.execute({
-      sql: `INSERT INTO products (trip_id, image_url, thumbnail_url, category, capture_timestamp)
-            VALUES (?, ?, ?, ?, datetime('now'))`,
-      args: [tripId, url, thumbnailUrl, category],
+      sql: `INSERT INTO products (
+              trip_id, image_url, thumbnail_url, category,
+              product_name, sku, current_price, original_price, discount_percent,
+              shelf_info_json, ocr_confidence_score, status, capture_timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      args: [
+        tripId,
+        url,
+        thumbnailUrl,
+        productInfo.category, // Use OCR-detected category
+        productInfo.product_name,
+        productInfo.sku || null,
+        productInfo.current_price || null,
+        productInfo.original_price || null,
+        productInfo.discount_percent || null,
+        JSON.stringify({
+          brand: productInfo.brand,
+          size: productInfo.size,
+          quantity: productInfo.quantity,
+          unit: productInfo.unit,
+        }),
+        productInfo.confidence,
+        'approved', // Auto-approve all uploads
+      ],
     });
 
     // Update trip item count
@@ -43,10 +74,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({
-      id: result.lastInsertRowid,
+      id: Number(result.lastInsertRowid),
       image_url: url,
       thumbnail_url: thumbnailUrl,
-      category,
+      category: productInfo.category,
       trip_id: tripId,
     });
   } catch (error) {

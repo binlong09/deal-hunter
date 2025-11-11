@@ -11,6 +11,8 @@ interface Product {
   original_price: number;
   discount_percent: number;
   image_url: string;
+  sku?: string;
+  shelf_info_json?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -46,15 +48,45 @@ export async function POST(request: NextRequest) {
 
     const exampleTexts = examples.map((e) => e.post_text);
 
-    // Generate posts with scheduling
+    console.log(`Found ${exampleTexts.length} active example posts for generation`);
+    if (exampleTexts.length > 0) {
+      console.log('First example preview:', exampleTexts[0].substring(0, 100) + '...');
+    } else {
+      console.warn('WARNING: No active example posts found! Generated posts may not match desired style.');
+    }
+
+    // Generate posts without scheduling - use current timestamp
     const generatedPosts = [];
-    const postsPerDay = 3;
-    let currentDate = new Date();
-    let postCountToday = 0;
+
+    // Helper function to format date as YYYY-MM-DD in local timezone
+    const formatLocalDate = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    // Helper function to format time as HH:MM:SS in local timezone
+    const formatLocalTime = (date: Date): string => {
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    };
 
     for (const product of products) {
       try {
-        // Generate post text
+        // Parse shelf info JSON if available
+        let shelfInfo: any = {};
+        if (product.shelf_info_json) {
+          try {
+            shelfInfo = JSON.parse(product.shelf_info_json);
+          } catch (e) {
+            console.error('Failed to parse shelf_info_json:', e);
+          }
+        }
+
+        // Generate post text with full product data
         const postText = await generatePost(
           {
             product_name: product.product_name || 'Product',
@@ -62,6 +94,10 @@ export async function POST(request: NextRequest) {
             current_price: product.current_price || 0,
             original_price: product.original_price || 0,
             discount_percent: product.discount_percent || 0,
+            sku: product.sku,
+            brand: shelfInfo.brand,
+            size: shelfInfo.size,
+            quantity: shelfInfo.quantity,
           },
           exampleTexts
         );
@@ -74,19 +110,17 @@ export async function POST(request: NextRequest) {
           console.error('Image optimization failed, using original:', error);
         }
 
-        // Calculate scheduled time
-        if (schedule) {
-          if (postCountToday >= postsPerDay) {
-            currentDate.setDate(currentDate.getDate() + 1);
-            postCountToday = 0;
-          }
-        }
+        // Use current timestamp for generated posts
+        const now = new Date();
+        const scheduledDate = formatLocalDate(now);
+        const scheduledTime = formatLocalTime(now);
 
-        const times = ['10:00:00', '14:00:00', '19:00:00'];
-        const scheduledTime = schedule ? times[postCountToday] : '10:00:00';
-        const scheduledDate = schedule
-          ? currentDate.toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0];
+        console.log(`=== POST GENERATION DEBUG ===`);
+        console.log(`Raw Date object:`, now);
+        console.log(`Formatted date:`, scheduledDate);
+        console.log(`Formatted time:`, scheduledTime);
+        console.log(`Product: ${product.product_name}`);
+        console.log(`===========================`);
 
         // Save to database
         const result = await turso.execute({
@@ -103,7 +137,7 @@ export async function POST(request: NextRequest) {
         });
 
         generatedPosts.push({
-          id: result.lastInsertRowid,
+          id: Number(result.lastInsertRowid),
           product_id: product.id,
           scheduled_date: scheduledDate,
           scheduled_time: scheduledTime,
@@ -111,8 +145,6 @@ export async function POST(request: NextRequest) {
           optimized_image_url: fbImageUrl,
           status: 'generated',
         });
-
-        postCountToday++;
       } catch (error) {
         console.error(`Failed to generate post for product ${product.id}:`, error);
         // Continue with next product

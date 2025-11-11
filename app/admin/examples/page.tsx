@@ -122,10 +122,27 @@ export default function ExamplePostsPage() {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
+        {/* Active Examples Summary */}
+        {posts.length > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">💡</span>
+              <div>
+                <p className="font-semibold text-blue-900">
+                  {posts.filter(p => p.is_active === 1).length} of {posts.length} examples are active
+                </p>
+                <p className="text-sm text-blue-700">
+                  Active examples will be used to train the AI when generating posts. Click &quot;Disable&quot; to exclude an example without deleting it.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Add Form */}
         {showForm && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Add Example Post</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Example Post</h2>
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -138,7 +155,7 @@ export default function ExamplePostsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, product_category: e.target.value })
                     }
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                   >
                     <option value="">Select category</option>
                     <option value="supplements">Supplements</option>
@@ -158,7 +175,7 @@ export default function ExamplePostsPage() {
                       setFormData({ ...formData, product_type: e.target.value })
                     }
                     placeholder="e.g., Vitamins, Diapers"
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                   />
                 </div>
               </div>
@@ -174,7 +191,7 @@ export default function ExamplePostsPage() {
                   }
                   rows={8}
                   placeholder="Enter example post text..."
-                  className="w-full px-3 py-2 border rounded-lg font-mono text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm bg-white text-gray-900"
                 />
               </div>
 
@@ -189,7 +206,7 @@ export default function ExamplePostsPage() {
                     setFormData({ ...formData, style_notes: e.target.value })
                   }
                   placeholder="e.g., Casual tone, lots of emojis"
-                  className="w-full px-3 py-2 border rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 />
               </div>
 
@@ -219,19 +236,31 @@ export default function ExamplePostsPage() {
             {posts.map((post) => (
               <div
                 key={post.id}
-                className={`bg-white rounded-lg shadow-sm p-6 ${
-                  post.is_active === 0 ? 'opacity-50' : ''
+                className={`rounded-lg shadow-sm p-6 ${
+                  post.is_active === 0
+                    ? 'bg-gray-100 border-2 border-gray-300'
+                    : 'bg-white border-2 border-green-200'
                 }`}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div>
+                  <div className="flex items-center gap-2">
+                    {post.is_active === 1 && (
+                      <span className="inline-block px-2 py-1 bg-green-500 text-white text-xs rounded-full font-semibold">
+                        ✓ IN USE
+                      </span>
+                    )}
+                    {post.is_active === 0 && (
+                      <span className="inline-block px-2 py-1 bg-gray-500 text-white text-xs rounded-full">
+                        DISABLED
+                      </span>
+                    )}
                     {post.product_category && (
-                      <span className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full mr-2">
+                      <span className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full">
                         {post.product_category}
                       </span>
                     )}
                     {post.product_type && (
-                      <span className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                      <span className="inline-block px-2 py-1 bg-gray-100 text-gray-900 text-xs rounded-full">
                         {post.product_type}
                       </span>
                     )}
@@ -241,11 +270,11 @@ export default function ExamplePostsPage() {
                       onClick={() => toggleActive(post.id, post.is_active)}
                       className={`px-3 py-1 rounded text-xs font-medium ${
                         post.is_active === 1
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-600'
+                          ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
                       }`}
                     >
-                      {post.is_active === 1 ? 'Active' : 'Inactive'}
+                      {post.is_active === 1 ? 'Disable' : 'Enable'}
                     </button>
                     <button
                       onClick={() => deletePost(post.id)}
@@ -256,7 +285,7 @@ export default function ExamplePostsPage() {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4 mb-3 whitespace-pre-wrap text-sm font-mono">
+                <div className="bg-gray-50 rounded-lg p-4 mb-3 whitespace-pre-wrap text-sm text-gray-900 font-mono">
                   {post.post_text}
                 </div>
 
