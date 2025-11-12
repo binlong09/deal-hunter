@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import CameraCapture from '@/components/CameraCapture';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -10,6 +10,7 @@ export default function CapturePage() {
   const [uploadQueue, setUploadQueue] = useState<File[]>([]);
   const [uploadedCount, setUploadedCount] = useState(0);
   const [showCamera, setShowCamera] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   // Create trip on mount
@@ -65,6 +66,24 @@ export default function CapturePage() {
     }
   };
 
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || !tripId) return;
+
+    // Process each selected file
+    Array.from(files).forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        setUploadQueue((prev) => [...prev, file]);
+        uploadImage(file);
+      }
+    });
+
+    // Reset file input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   if (!tripId) {
     return (
       <div className="flex items-center justify-center h-screen bg-black text-white">
@@ -92,7 +111,23 @@ export default function CapturePage() {
               onClick={() => setShowCamera(true)}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors shadow-lg"
             >
-              Start Camera
+              📸 Start Camera
+            </button>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept="image/*"
+              multiple
+              className="hidden"
+            />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-4 px-6 rounded-xl transition-colors shadow-lg"
+            >
+              🖼️ Upload from Gallery
             </button>
 
             <Link
@@ -137,13 +172,24 @@ export default function CapturePage() {
         ← Back
       </button>
 
+      {/* Upload from gallery button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          fileInputRef.current?.click();
+        }}
+        className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-purple-600/90 text-white px-6 py-2 rounded-full backdrop-blur-sm hover:bg-purple-700 font-semibold"
+      >
+        🖼️ Upload
+      </button>
+
       {/* Done button */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           router.push('/dashboard');
         }}
-        className="fixed top-20 right-20 z-50 bg-green-600/90 text-white px-6 py-2 rounded-full backdrop-blur-sm hover:bg-green-700 font-semibold"
+        className="fixed top-20 right-4 z-50 bg-green-600/90 text-white px-6 py-2 rounded-full backdrop-blur-sm hover:bg-green-700 font-semibold"
       >
         Done ({uploadedCount})
       </button>
