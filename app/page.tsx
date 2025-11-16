@@ -18,28 +18,35 @@ export default function HomePage() {
             href="/capture"
             className="block w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"
           >
-            Capture Products
+            📸 Capture Products
           </Link>
 
           <Link
             href="/dashboard"
             className="block w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"
           >
-            Curate Deals
+            📋 Curate Deals
           </Link>
 
           <Link
             href="/generate"
             className="block w-full bg-pink-600 hover:bg-pink-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"
           >
-            Generate Posts
+            ✨ Generate Posts
+          </Link>
+
+          <Link
+            href="/deals"
+            className="block w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"
+          >
+            🎯 Track Deals
           </Link>
 
           <Link
             href="/admin/examples"
             className="block w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"
           >
-            Manage Examples
+            ⚙️ Manage Examples
           </Link>
         </div>
 
