@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import PriceChart from '@/components/PriceChart';
 
 interface TrackedProduct {
   id: number;
@@ -19,6 +20,10 @@ interface TrackedProduct {
   created_at: string;
   price_check_count: number;
   unread_alerts: number;
+  authenticity_score: number | null;
+  authenticity_verdict: string | null;
+  authenticity_reasoning: string | null;
+  authenticity_checked_at: string | null;
 }
 
 interface DealAlert {
@@ -44,6 +49,8 @@ export default function DealsPage() {
   const [newProductUrl, setNewProductUrl] = useState('');
   const [newProductPriority, setNewProductPriority] = useState(2);
   const [checkingPrices, setCheckingPrices] = useState(false);
+  const [expandedProductId, setExpandedProductId] = useState<number | null>(null);
+  const [priceHistory, setPriceHistory] = useState<Record<number, any[]>>({});
 
   useEffect(() => {
     fetchProducts();
@@ -144,6 +151,24 @@ export default function DealsPage() {
     }
   };
 
+  const togglePriceChart = async (productId: number) => {
+    if (expandedProductId === productId) {
+      setExpandedProductId(null);
+    } else {
+      setExpandedProductId(productId);
+      // Fetch price history if not already loaded
+      if (!priceHistory[productId]) {
+        try {
+          const response = await fetch(`/api/price-history?productId=${productId}&limit=30`);
+          const data = await response.json();
+          setPriceHistory(prev => ({ ...prev, [productId]: data.history }));
+        } catch (error) {
+          console.error('Failed to fetch price history:', error);
+        }
+      }
+    }
+  };
+
   const getPriorityLabel = (priority: number) => {
     if (priority === 1) return { label: 'High', color: 'bg-red-100 text-red-800' };
     if (priority === 2) return { label: 'Medium', color: 'bg-yellow-100 text-yellow-800' };
@@ -158,6 +183,25 @@ export default function DealsPage() {
     return 'bg-gray-100 text-gray-800 border-gray-300';
   };
 
+  const getAuthenticityBadge = (verdict: string | null, score: number | null) => {
+    if (!verdict) return null;
+
+    const badges = {
+      GENUINE: { icon: '✓', label: 'Verified Deal', color: 'bg-green-100 text-green-800 border-green-300' },
+      LIKELY_GENUINE: { icon: '✓', label: 'Likely Genuine', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+      SUSPICIOUS: { icon: '⚠', label: 'Suspicious', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+      LIKELY_FAKE: { icon: '⚠', label: 'Likely Fake', color: 'bg-orange-100 text-orange-800 border-orange-300' },
+      UNKNOWN: { icon: '?', label: 'Unverified', color: 'bg-gray-100 text-gray-800 border-gray-300' },
+    };
+
+    const badge = badges[verdict as keyof typeof badges] || badges.UNKNOWN;
+
+    return {
+      ...badge,
+      score,
+    };
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -169,6 +213,9 @@ export default function DealsPage() {
               <p className="text-sm text-gray-600">Monitor prices and get notified of great deals</p>
             </div>
             <div className="flex gap-3">
+              <Link href="/categories" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium">
+                🏷️ Category Tracking
+              </Link>
               <button
                 onClick={handleCheckPrices}
                 disabled={checkingPrices}
@@ -359,14 +406,58 @@ export default function DealsPage() {
                               {product.unread_alerts} new alerts
                             </span>
                           )}
+                          {(() => {
+                            const authBadge = getAuthenticityBadge(product.authenticity_verdict, product.authenticity_score);
+                            if (authBadge) {
+                              return (
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium border ${authBadge.color}`}
+                                  title={product.authenticity_reasoning || ''}
+                                >
+                                  {authBadge.icon} {authBadge.label}
+                                  {authBadge.score && ` (${authBadge.score})`}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
 
                         <div className="mt-2 text-xs text-gray-500">
                           Checked {product.price_check_count} times
                           {product.last_checked_at && ` • Last: ${new Date(product.last_checked_at).toLocaleString()}`}
                         </div>
+
+                        {/* View Price History Button */}
+                        {product.price_check_count > 1 && (
+                          <div className="mt-3">
+                            <button
+                              onClick={() => togglePriceChart(product.id)}
+                              className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                            >
+                              {expandedProductId === product.id ? '▼' : '▶'}
+                              {expandedProductId === product.id ? 'Hide' : 'View'} Price History
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* Price Chart - Expanded */}
+                    {expandedProductId === product.id && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        {priceHistory[product.id] ? (
+                          <PriceChart
+                            data={priceHistory[product.id]}
+                            currency={product.currency}
+                          />
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            Loading price history...
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -43,6 +43,13 @@ export default function HomePage() {
           </Link>
 
           <Link
+            href="/categories"
+            className="block w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"
+          >
+            🏷️ Category Tracking
+          </Link>
+
+          <Link
             href="/admin/examples"
             className="block w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"
           >

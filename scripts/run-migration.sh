@@ -26,14 +26,22 @@ fi
 echo ""
 echo "📋 Available migrations:"
 echo "  1. 001-remove-category-constraint.sql - Remove category CHECK constraint"
+echo "  2. 002-deal-tracking.sql - Add deal tracking and price monitoring tables"
+echo "  3. 003-category-tracking.sql - Add category-based tracking (e.g., 'any air fryer under $50')"
 echo ""
 
-read -p "Which migration to run? (1): " MIGRATION_NUM
+read -p "Which migration to run? (1-3): " MIGRATION_NUM
 
 MIGRATION_FILE=""
 case $MIGRATION_NUM in
     1)
         MIGRATION_FILE="migrations/001-remove-category-constraint.sql"
+        ;;
+    2)
+        MIGRATION_FILE="migrations/002-deal-tracking.sql"
+        ;;
+    3)
+        MIGRATION_FILE="migrations/003-category-tracking.sql"
         ;;
     *)
         echo "❌ Invalid migration number"

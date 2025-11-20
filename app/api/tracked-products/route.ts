@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { turso } from '@/lib/turso';
 import { extractPriceFromHTML } from '@/lib/price-extractor';
+import { checkDealAuthenticity } from '@/lib/authenticity-checker';
 
 // GET /api/tracked-products - List all tracked products
 export async function GET(request: NextRequest) {
@@ -41,6 +42,10 @@ export async function GET(request: NextRequest) {
       updated_at: row.updated_at,
       price_check_count: Number(row.price_check_count),
       unread_alerts: Number(row.unread_alerts),
+      authenticity_score: row.authenticity_score ? Number(row.authenticity_score) : null,
+      authenticity_verdict: row.authenticity_verdict,
+      authenticity_reasoning: row.authenticity_reasoning,
+      authenticity_checked_at: row.authenticity_checked_at,
     }));
 
     return NextResponse.json({ products });
@@ -129,6 +134,31 @@ export async function POST(request: NextRequest) {
           priceInfo.saleBadge,
         ],
       });
+
+      // Run authenticity check in background (don't block response)
+      checkDealAuthenticity(url, priceInfo.price, undefined, priceInfo.productName || undefined)
+        .then(async (authenticityResult) => {
+          console.log(`Authenticity check complete for product ${productId}: ${authenticityResult.verdict}`);
+
+          // Update product with authenticity data
+          await turso.execute({
+            sql: `UPDATE tracked_products
+                  SET authenticity_score = ?,
+                      authenticity_verdict = ?,
+                      authenticity_reasoning = ?,
+                      authenticity_checked_at = datetime('now')
+                  WHERE id = ?`,
+            args: [
+              authenticityResult.score,
+              authenticityResult.verdict,
+              authenticityResult.reasoning,
+              productId,
+            ],
+          });
+        })
+        .catch((error) => {
+          console.error(`Authenticity check failed for product ${productId}:`, error);
+        });
     }
 
     return NextResponse.json({
