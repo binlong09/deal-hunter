@@ -97,6 +97,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`Found ${matches.length} matching products`);
 
+    if (matches.length === 0) {
+      console.log('⚠️ No products found. Amazon scraping may be blocked.');
+      console.log('💡 Category tracker created but no initial matches. Consider adding products manually or using a product API.');
+    }
+
     // Store matches
     for (const match of matches.slice(0, 10)) {
       // Top 10 matches
@@ -148,6 +153,9 @@ export async function POST(request: NextRequest) {
       id: trackerId,
       name,
       matches_found: matches.length,
+      message: matches.length === 0
+        ? 'Category tracker created, but no products found. Amazon may be blocking scraping. Try adding products manually or consider using a product API for automated search.'
+        : `Found ${matches.length} matching products!`,
     });
   } catch (error) {
     console.error('Error creating category tracker:', error);

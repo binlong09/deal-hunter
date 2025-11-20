@@ -95,12 +95,13 @@ export default function CategoriesPage() {
       });
 
       if (response.ok) {
+        const data = await response.json();
         setNewTrackerName('');
         setNewTrackerKeywords('');
         setNewTrackerMaxPrice('');
         setNewTrackerCategory('');
         await fetchTrackers();
-        alert('Category tracker created! Searching for matching products...');
+        alert(data.message || 'Category tracker created!');
       } else {
         const data = await response.json();
         alert(data.error || 'Failed to create tracker');

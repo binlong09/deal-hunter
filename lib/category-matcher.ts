@@ -169,44 +169,16 @@ async function searchAmazon(keywords: string, maxPrice?: number): Promise<Produc
 
     console.log(`Total matches found: ${matches.length}`);
 
-    // If no matches found, return mock data for testing
     if (matches.length === 0) {
-      console.log('⚠️ No matches found. Amazon may be blocking scraping. Returning mock data for testing...');
-      return generateMockMatches(keywords, maxPrice);
+      console.log('⚠️ No matches found. Amazon may be blocking scraping.');
+      console.log('💡 Consider using a product API (Rainforest API, ScraperAPI) for production use.');
     }
 
     return matches.slice(0, 20); // Return top 20 matches
   } catch (error) {
     console.error('Amazon search error:', error);
-    console.log('⚠️ Search failed. Returning mock data for testing...');
-    return generateMockMatches(keywords, maxPrice);
+    return [];
   }
-}
-
-/**
- * Generate mock product matches for testing
- * TODO: Replace with real product API in production
- */
-function generateMockMatches(keywords: string, maxPrice?: number): ProductMatch[] {
-  const mockProducts = [
-    { name: `Premium ${keywords} - Model A`, price: maxPrice ? maxPrice * 0.6 : 49.99, discount: 25 },
-    { name: `Bestseller ${keywords} - Pro Edition`, price: maxPrice ? maxPrice * 0.7 : 69.99, discount: 20 },
-    { name: `${keywords} Deluxe`, price: maxPrice ? maxPrice * 0.8 : 79.99, discount: 15 },
-    { name: `Compact ${keywords}`, price: maxPrice ? maxPrice * 0.5 : 39.99, discount: 30 },
-    { name: `${keywords} - Energy Star Certified`, price: maxPrice ? maxPrice * 0.75 : 74.99, discount: 18 },
-  ].filter(p => !maxPrice || p.price <= maxPrice);
-
-  return mockProducts.map((product, index) => ({
-    url: `https://www.amazon.com/dp/MOCK${index}`,
-    productName: product.name,
-    price: product.price,
-    currency: 'USD',
-    imageUrl: `https://via.placeholder.com/200?text=${encodeURIComponent(keywords)}`,
-    storeName: 'Amazon (Mock Data)',
-    matchScore: 85 - (index * 5),
-    originalPrice: product.price / (1 - product.discount / 100),
-    discountPercent: product.discount,
-  }));
 }
 
 /**
