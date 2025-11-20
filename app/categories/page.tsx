@@ -142,7 +142,7 @@ export default function CategoriesPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Category Tracking</h1>
-              <p className="text-sm text-gray-600">Track product categories like "any air fryer under $50"</p>
+              <p className="text-sm text-gray-600">Track product categories like &quot;any air fryer under $50&quot;</p>
             </div>
             <Link href="/deals" className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium">
               ← Back to Deals
