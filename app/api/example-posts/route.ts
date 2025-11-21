@@ -5,7 +5,7 @@ import { turso, query, queryOne } from '@/lib/turso';
 export async function GET() {
   try {
     const posts = await query(
-      `SELECT * FROM example_posts WHERE is_active = 1 ORDER BY created_at DESC`
+      `SELECT * FROM example_posts ORDER BY created_at DESC`
     );
     return NextResponse.json({ posts });
   } catch (error) {
