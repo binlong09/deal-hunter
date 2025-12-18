@@ -4,7 +4,9 @@
       "Bash(npm install)",
       "Bash(npm run build:*)",
       "Bash(chmod:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(cat:*)",
+      "Bash([ -f .env ])"
     ],
     "deny": [],
     "ask": []

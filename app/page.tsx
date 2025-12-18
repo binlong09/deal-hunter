@@ -49,6 +49,24 @@ export default function HomePage() {
             🏷️ Category Tracking
           </Link>
 
+          <div className="border-t border-gray-200 pt-4 mt-4">
+            <p className="text-xs text-gray-500 text-center mb-3">Sales Analytics</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Link
+                href="/analytics"
+                className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl text-center transition-colors shadow-lg text-sm"
+              >
+                📊 Analytics
+              </Link>
+              <Link
+                href="/recommendations"
+                className="block w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-4 rounded-xl text-center transition-colors shadow-lg text-sm"
+              >
+                🔥 What to Post
+              </Link>
+            </div>
+          </div>
+
           <Link
             href="/admin/examples"
             className="block w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-4 px-6 rounded-xl text-center transition-colors shadow-lg"

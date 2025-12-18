@@ -20,6 +20,11 @@ interface Product {
   sku: string | null;
 }
 
+interface HotCategory {
+  category: string;
+  recommendation: 'hot' | 'good' | 'neutral' | 'avoid';
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
@@ -28,9 +33,11 @@ export default function DashboardPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0, status: '' });
+  const [hotCategories, setHotCategories] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchProducts();
+    fetchHotCategories();
   }, [categoryFilter]);
 
   const fetchProducts = async () => {
@@ -46,6 +53,23 @@ export default function DashboardPage() {
       console.error('Failed to fetch products:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHotCategories = async () => {
+    try {
+      const response = await fetch('/api/recommendations?type=categories');
+      const data = await response.json();
+      const hot = new Set<string>();
+      (data.hotCategories || []).forEach((cat: HotCategory) => {
+        if (cat.recommendation === 'hot') {
+          hot.add(cat.category);
+        }
+      });
+      setHotCategories(hot);
+    } catch (error) {
+      // Silently fail - recommendations are optional
+      console.error('Failed to fetch hot categories:', error);
     }
   };
 
@@ -290,11 +314,16 @@ export default function DashboardPage() {
                     className="w-full h-full object-cover"
                   />
 
-                  {/* Status Badge */}
-                  <div className="absolute top-2 right-2">
+                  {/* Status Badges */}
+                  <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                     {product.starred === 1 && (
                       <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
                         ⭐
+                      </span>
+                    )}
+                    {hotCategories.has(product.category) && (
+                      <span className="bg-orange-500 text-white text-xs px-2 py-1 rounded-full animate-pulse" title="High demand category">
+                        🔥 Hot
                       </span>
                     )}
                   </div>

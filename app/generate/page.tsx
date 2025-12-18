@@ -136,6 +136,17 @@ export default function GeneratePage() {
         body: JSON.stringify({ status: 'copied' }),
       });
 
+      // Track as posted item for analytics
+      await fetch('/api/posted-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productName: post.product_name,
+          category: post.category,
+          generatedPostId: post.id,
+        }),
+      });
+
       await fetchGeneratedPosts();
     } catch (error) {
       alert('Failed to copy text');
